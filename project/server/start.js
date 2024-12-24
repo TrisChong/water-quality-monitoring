@@ -1,10 +1,8 @@
 import app from './index.js';
 import { createServer } from 'http';
-import connectDB from './config/db.js';
-import { configureSocket } from './config/socket.js';
+import { createConnection } from './config/db/connection.js';
 import dotenv from 'dotenv';
 import { log } from './utils/logger.js';
-import { validateEnv } from './utils/validateEnv.js';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -16,23 +14,40 @@ const startServer = async () => {
     log.divider();
     log.info('Starting server...');
     
-    if (!validateEnv()) {
-      throw new Error('Environment validation failed');
+    const uri = process.env.MONGODB_URI;
+    if (!uri) {
+      throw new Error('MONGODB_URI is not defined in environment variables');
     }
+
+    // Ensure database name is in URI
+    const uriWithDB = uri.includes('waterquality') ? uri : `${uri}/waterquality`;
     
-    await connectDB();
+    // Connect to MongoDB
+    log.info('Initializing MongoDB connection...');
+    await createConnection(uriWithDB);
     
+    // Start HTTP server
     const httpServer = createServer(app);
-    configureSocket(httpServer);
-    
     const PORT = process.env.PORT || 5000;
+    
     httpServer.listen(PORT, () => {
       log.success(`Server running on port ${PORT}`);
       log.divider();
     });
+
+    // Handle server shutdown
+    process.on('SIGTERM', () => {
+      log.info('SIGTERM received. Shutting down gracefully...');
+      httpServer.close(() => {
+        log.info('HTTP server closed');
+        process.exit(0);
+      });
+    });
+
   } catch (error) {
     log.error('Failed to start server:');
     log.error(error.message);
+    log.error(error.stack);
     process.exit(1);
   }
 };

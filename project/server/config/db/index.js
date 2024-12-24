@@ -1,29 +1,18 @@
-import dotenv from 'dotenv';
 import { log } from '../../utils/logger.js';
 import { createConnection } from './connection.js';
-import { setupConnectionEvents } from './events.js';
 
-dotenv.config();
+const connectDB = async (uri) => {
+  if (!uri) {
+    throw new Error('MongoDB URI is required');
+  }
 
-const connectDB = async () => {
   try {
-    log.info('Initializing MongoDB connection...');
-    
-    const uri = process.env.MONGODB_URI;
-    if (!uri) {
-      throw new Error('MONGODB_URI is not defined in environment variables');
-    }
-
-    // Ensure database name is in URI
-    const uriWithDB = uri.includes('waterquality') ? uri : `${uri}/waterquality`;
-    
-    const connection = await createConnection(uriWithDB);
-    setupConnectionEvents(connection);
-    
+    const connection = await createConnection(uri);
+    log.success(`Connected to database: ${connection.connection.name}`);
     return connection;
   } catch (error) {
-    log.error('MongoDB Connection Failed');
-    log.error(`Error Details: ${error.message}`);
+    log.error('Failed to connect to MongoDB');
+    log.error(error.message);
     throw error;
   }
 };
